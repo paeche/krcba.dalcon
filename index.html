@@ -337,8 +337,8 @@
     </div>
 
     <script>
-        // GAS 웹앱 API URL (배포된 /exec URL로 교체)
-        const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+        // Cloudflare Functions 프록시 경로
+        const GAS_WEBAPP_URL = '/api/gas';
         let eventInfo = { success: false, message: '행사 정보를 불러오는 중입니다.' };
 
         // Cloudflare(정적)에서 GAS API 호출
