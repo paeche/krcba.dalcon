@@ -340,6 +340,7 @@
         // Cloudflare Functions 프록시 경로
         const GAS_WEBAPP_URL = '/api/gas';
         let eventInfo = { success: false, message: '행사 정보를 불러오는 중입니다.' };
+        let isEventInfoLoading = true;
 
         // Cloudflare(정적)에서 GAS API 호출
         async function callGasApi(action, payload) {
@@ -372,6 +373,25 @@
                     <div class="sp sp-circle" style="margin: 0;"></div>
                 </div>
             `;
+        }
+
+        async function fetchAndRenderEventInfo() {
+            renderEventInfoLoading();
+            isEventInfoLoading = true;
+
+            try {
+                eventInfo = await callGasApi('getEventInfo');
+            } catch (error) {
+                console.error('행사 정보 조회 실패:', error);
+                eventInfo = { success: false, message: '행사 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.' };
+            } finally {
+                isEventInfoLoading = false;
+            }
+
+            renderEventInfo();
+            if (!eventInfo.success) {
+                disableForm();
+            }
         }
 
         // localStorage를 사용한 데이터 저장/불러오기 함수
@@ -415,20 +435,8 @@
         }
 
         // Load saved data when page loads
-        document.addEventListener('DOMContentLoaded', async function() {
-            renderEventInfoLoading();
-
-            try {
-                eventInfo = await callGasApi('getEventInfo');
-            } catch (error) {
-                console.error('행사 정보 조회 실패:', error);
-                eventInfo = { success: false, message: '행사 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.' };
-            }
-
-            renderEventInfo();
-            if (!eventInfo.success) {
-                disableForm();
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchAndRenderEventInfo();
             loadSavedData();
             
             // Initialize custom dropdown
@@ -694,6 +702,11 @@
 
         // 미리보기 모드로 참여자 현황 보기
         async function showParticipantsPreview() {
+            if (isEventInfoLoading) {
+              showNotification('행사 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.', 'error');
+              return;
+            }
+
             // ✨ 모집 중이 아닐 때 즉시 차단
             if (!eventInfo.success) {
               showNotification('현재 모집 중인 행사가 없어 참여자 현황을 확인할 수 없습니다.', 'error');
@@ -841,6 +854,11 @@
         // Form submission handler
         document.getElementById('dalConForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            if (isEventInfoLoading) {
+                showNotification('행사 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.', 'error');
+                return;
+            }
 
             // ✨ 이미 제출 중인지 확인
             const submitButton = this.querySelector('button[type="submit"]');
