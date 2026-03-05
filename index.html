@@ -362,6 +362,18 @@
             return JSON.parse(text);
         }
 
+        function renderEventInfoLoading() {
+            const container = document.getElementById('event-info-container');
+            const mainTitle = document.getElementById('main-title');
+            mainTitle.textContent = '달콘데이 참가 신청';
+            container.innerHTML = `
+                <p class="text-center text-gray-400">행사 정보를 불러오는 중...</p>
+                <div class="flex justify-center items-center py-4">
+                    <div class="sp sp-circle" style="margin: 0;"></div>
+                </div>
+            `;
+        }
+
         // localStorage를 사용한 데이터 저장/불러오기 함수
         function loadSavedData() {
             const savedData = localStorage.getItem('dalcon_form_data');
@@ -404,6 +416,8 @@
 
         // Load saved data when page loads
         document.addEventListener('DOMContentLoaded', async function() {
+            renderEventInfoLoading();
+
             try {
                 eventInfo = await callGasApi('getEventInfo');
             } catch (error) {
