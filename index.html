@@ -377,8 +377,37 @@
                 location: row.venue ?? null,
                 description: row.description ?? null,
                 link: row.external_link ?? null,
-                contact: row.contact ?? null
+                contact: row.contact ?? null,
+                registrationStart: row.registration_start ?? null,
+                registrationEnd: row.registration_end ?? null
             };
+        }
+
+        function parseDateAtBoundary(dateText, isEndOfDay) {
+            if (!dateText) {
+                return null;
+            }
+            const date = new Date(dateText);
+            if (Number.isNaN(date.getTime())) {
+                return null;
+            }
+            if (isEndOfDay) {
+                date.setHours(23, 59, 59, 999);
+            } else {
+                date.setHours(0, 0, 0, 0);
+            }
+            return date;
+        }
+
+        function isRecruitmentOpen(row, now) {
+            const startDate = parseDateAtBoundary(row.registration_start, false);
+            const endDate = parseDateAtBoundary(row.registration_end, true);
+
+            if (!startDate || !endDate) {
+                return false;
+            }
+
+            return now >= startDate && now <= endDate;
         }
 
         function buildSupabaseErrorMessage(error, defaultMessage) {
@@ -406,7 +435,7 @@
                 .select(EVENT_SELECT_COLUMNS)
                 .order('round_number', { ascending: false })
                 .order('event_date', { ascending: false })
-                .limit(1);
+                .limit(50);
 
             if (error) {
                 throw error;
@@ -415,7 +444,15 @@
             if (!Array.isArray(data) || data.length === 0) {
                 return { success: false, message: '현재 모집 중인 행사가 없습니다.' };
             }
-            return { success: true, event: mapEventRow(data[0]) };
+
+            const now = new Date();
+            const activeEventRow = data.find((row) => isRecruitmentOpen(row, now));
+
+            if (!activeEventRow) {
+                return { success: false, message: '현재 모집 중인 행사가 없습니다.' };
+            }
+
+            return { success: true, event: mapEventRow(activeEventRow) };
         }
 
         async function fetchRecentApplicants() {
