@@ -341,6 +341,7 @@
         const SUPABASE_URL = 'https://pjrfjxdkxczmzlxbpbjw.supabase.co';
         const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_5GebfZUiY_JrE-tFZ4kRlw_BTGjubUS';
         const GAS_API_URL = '/api/gas';
+        const GAS_DIRECT_URL = 'https://script.google.com/macros/s/AKfycbxsJ-k_2X6lD7RgkQfP1mJzZlgMipU630BpcOp-7_Ba9_ZCtLVtpbgOP_l85qr6ghYF/exec';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         const EVENT_SELECT_COLUMNS = 'id, round_number, event_date, start_time, end_time, title, description, instructor, max_participants, venue, registration_start, registration_end, external_link, contact';
         let eventInfo = { success: false, message: '행사 정보를 불러오는 중입니다.' };
@@ -498,14 +499,6 @@
         }
 
         async function sendConfirmationEmailViaApi(formData, event) {
-            if (isLocalStaticPreview()) {
-                return {
-                    success: false,
-                    skipped: true,
-                    message: '로컬 정적 미리보기 환경에서는 GAS 메일 API를 호출하지 않습니다.'
-                };
-            }
-
             const body = new URLSearchParams();
             body.set('action', 'sendConfirmationEmail');
             body.set('payload', JSON.stringify({
@@ -524,6 +517,24 @@
                     }
                 }
             }));
+
+            if (isLocalStaticPreview()) {
+                // 로컬 정적 서버에서는 /api 라우트가 없으므로 GAS 웹앱으로 직접 호출
+                await fetch(GAS_DIRECT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                    },
+                    body
+                });
+
+                return {
+                    success: true,
+                    localTest: true,
+                    message: '로컬 환경에서 GAS로 메일 전송 요청을 보냈습니다. (CORS 제한으로 결과 확인은 불가)'
+                };
+            }
 
             const response = await fetch(GAS_API_URL, {
                 method: 'POST',
@@ -1099,19 +1110,8 @@
                 loadingElement.classList.add('hidden');
 
                 if (result.success) {
-                    let submitSuccessMessage = result.message;
-                    try {
-                        const emailResult = await sendConfirmationEmailViaApi(formData, eventInfo?.event);
-                        if (emailResult.skipped) {
-                            submitSuccessMessage += ' (로컬 미리보기 환경에서는 확인 메일 전송이 생략됩니다.)';
-                        }
-                    } catch (emailError) {
-                        console.error('확인 메일 전송 실패:', emailError);
-                        submitSuccessMessage += ' (단, 확인 메일 전송에 실패했습니다.)';
-                    }
-
                     // 성공 시에는 버튼을 복원하지 않음 (페이지가 전환되므로)
-                    showNotification(submitSuccessMessage, 'success');
+                    showNotification(result.message, 'success');
 
                     // 폼과 헤더, 행사정보 숨기기
                     document.getElementById('main-header').classList.add('hidden');
@@ -1166,6 +1166,18 @@
                             checkmark.classList.add('text-indigo-600');
                         });
                     }
+
+                    // 메일 전송은 화면 전환을 막지 않도록 비동기로 처리
+                    sendConfirmationEmailViaApi(formData, eventInfo?.event)
+                        .then((emailResult) => {
+                            if (emailResult.localTest) {
+                                console.info(emailResult.message);
+                            }
+                        })
+                        .catch((emailError) => {
+                            console.error('확인 메일 전송 실패:', emailError);
+                            showNotification('신청은 완료되었으나 확인 메일 전송에 실패했습니다.', 'error');
+                        });
                 } else {
                     resetSubmitButton(submitButton); // ✨ 실패 시 버튼 복원
                     showNotification(result.message, 'error');
