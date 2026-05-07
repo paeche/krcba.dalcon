@@ -520,17 +520,41 @@
             return { success: true, message: '신청이 완료되었습니다!' };
         }
 
+        function formatEventDateLabel(eventDate) {
+            if (eventDate === null || eventDate === undefined || eventDate === '') {
+                return '';
+            }
+            const raw = typeof eventDate === 'string' ? eventDate.trim() : String(eventDate);
+            if (!raw) {
+                return '';
+            }
+            const localeOpts = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+            };
+            const rangeMatch = raw.match(/^(\d{4}-\d{2}-\d{2})\s*[~〜∼～\-–—]\s*(\d{4}-\d{2}-\d{2})$/);
+            if (rangeMatch) {
+                const start = new Date(rangeMatch[1]);
+                const end = new Date(rangeMatch[2]);
+                if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+                    return `${start.toLocaleDateString('ko-KR', localeOpts)} ~ ${end.toLocaleDateString('ko-KR', localeOpts)}`;
+                }
+            }
+            const parsed = new Date(raw);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed.toLocaleDateString('ko-KR', localeOpts);
+            }
+            return raw;
+        }
+
         function formatEventDateTime(eventDate, startTime, endTime) {
             if (!eventDate) {
                 return '';
             }
 
-            const dateOnly = new Date(eventDate).toLocaleDateString('ko-KR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'long'
-            });
+            const dateOnly = formatEventDateLabel(eventDate);
 
             if (startTime && endTime) {
                 return `${dateOnly} (${startTime}~${endTime})`;
@@ -818,12 +842,7 @@
                 // 날짜 포맷팅
                 let eventDateDisplay = null;
                 if (event.eventDate) {
-                    const dateOnly = new Date(event.eventDate).toLocaleDateString('ko-KR', {
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric', 
-                        weekday: 'long'
-                    });
+                    const dateOnly = formatEventDateLabel(event.eventDate);
                     
                     // 시작시간과 종료시간이 있으면 추가
                     if (event.startTime && event.endTime) {
